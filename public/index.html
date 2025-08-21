@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trello Todo Wallpaper Generator</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .status {
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .wallpaper-preview {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .wallpaper-preview img {
+            max-width: 300px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button.secondary {
+            background: #6c757d;
+        }
+        button.secondary:hover {
+            background: #545b62;
+        }
+        .todos {
+            margin-top: 30px;
+        }
+        .todo-section {
+            margin-bottom: 20px;
+        }
+        .todo-section h3 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        .todo-item {
+            background: #f8f9fa;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 4px solid #007AFF;
+        }
+        .due-date {
+            color: #ff9500;
+            font-size: 0.9em;
+        }
+        .last-updated {
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Trello Todo Wallpaper Generator</h1>
+        
+        <div class="status" id="status">
+            Loading status...
+        </div>
+
+        <div class="wallpaper-preview">
+            <h2>iPhone Wallpaper Preview</h2>
+            <img id="wallpaper" src="/wallpaper" alt="Generated Wallpaper" />
+            <div class="actions">
+                <button onclick="downloadWallpaper()">📱 Download Wallpaper</button>
+                <button onclick="downloadMarkdown()" class="secondary">📝 Download Markdown</button>
+                <button onclick="refreshTodos()">🔄 Refresh from Trello</button>
+            </div>
+        </div>
+
+        <div class="todos" id="todos">
+            Loading todos...
+        </div>
+
+        <div class="last-updated" id="lastUpdated">
+        </div>
+    </div>
+
+    <script>
+        async function loadStatus() {
+            try {
+                const response = await fetch('/');
+                const status = await response.json();
+                document.getElementById('status').innerHTML = `
+                    <strong>Status:</strong> ${status.status} | 
+                    <strong>Work Tasks:</strong> ${status.hasWorkTasks ? 'Yes' : 'No'} | 
+                    <strong>University Tasks:</strong> ${status.hasUniversityTasks ? 'Yes' : 'No'}
+                `;
+            } catch (error) {
+                document.getElementById('status').innerHTML = `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+
+        async function loadTodos() {
+            try {
+                const response = await fetch('/todos');
+                const todos = await response.json();
+                
+                let html = '';
+                
+                if (todos.work && todos.work.length > 0) {
+                    html += '<div class="todo-section"><h3>💼 Work Tasks</h3>';
+                    todos.work.forEach(task => {
+                        html += `<div class="todo-item">
+                            <strong>${task.name}</strong>
+                            ${task.due ? `<div class="due-date">Due: ${new Date(task.due).toLocaleDateString()}</div>` : ''}
+                        </div>`;
+                    });
+                    html += '</div>';
+                }
+
+                if (todos.university && todos.university.length > 0) {
+                    html += '<div class="todo-section"><h3>🎓 University Tasks</h3>';
+                    todos.university.forEach(task => {
+                        html += `<div class="todo-item">
+                            <strong>${task.name}</strong>
+                            ${task.due ? `<div class="due-date">Due: ${new Date(task.due).toLocaleDateString()}</div>` : ''}
+                        </div>`;
+                    });
+                    html += '</div>';
+                }
+
+                document.getElementById('todos').innerHTML = html || '<p>No todos found.</p>';
+                
+                if (todos.lastUpdated) {
+                    document.getElementById('lastUpdated').innerHTML = 
+                        `Last updated: ${new Date(todos.lastUpdated).toLocaleString()}`;
+                }
+            } catch (error) {
+                document.getElementById('todos').innerHTML = `<p>Error loading todos: ${error.message}</p>`;
+            }
+        }
+
+        function downloadWallpaper() {
+            const link = document.createElement('a');
+            link.href = '/wallpaper';
+            link.download = 'trello-todo-wallpaper.png';
+            link.click();
+        }
+
+        function downloadMarkdown() {
+            const link = document.createElement('a');
+            link.href = '/todo.md';
+            link.download = 'todo.md';
+            link.click();
+        }
+
+        async function refreshTodos() {
+            const button = event.target;
+            button.disabled = true;
+            button.textContent = '🔄 Refreshing...';
+            
+            try {
+                const response = await fetch('/refresh', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Reload the page to show updated data
+                    window.location.reload();
+                } else {
+                    alert('Error refreshing: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error refreshing: ' + error.message);
+            } finally {
+                button.disabled = false;
+                button.textContent = '🔄 Refresh from Trello';
+            }
+        }
+
+        // Load data on page load
+        loadStatus();
+        loadTodos();
+
+        // Refresh wallpaper image every 30 seconds
+        setInterval(() => {
+            const img = document.getElementById('wallpaper');
+            img.src = '/wallpaper?' + Date.now();
+        }, 30000);
+    </script>
+</body>
+</html>

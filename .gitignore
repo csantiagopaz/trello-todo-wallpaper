@@ -1,0 +1,7 @@
+node_modules/
+.env
+*.log
+wallpaper.png
+dist/
+.DS_Store
+package-lock.json
